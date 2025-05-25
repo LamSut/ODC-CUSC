@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.0 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.10.3 AS builder
 
-ARG UV=https://github.com/astral-sh/uv/releases/download/0.7.2/uv-x86_64-unknown-linux-gnu.tar.gz
+ARG UV=https://github.com/astral-sh/uv/releases/download/0.6.6/uv-x86_64-unknown-linux-gnu.tar.gz
 
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8 \
@@ -17,18 +17,18 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
-        unzip \
-        # Build tools
-        build-essential \
-        libffi-dev \
-        python3-dev \
-        # For Psycopg2
-        libpq-dev \
-        # Yaml parsing speedup, I think
-        libyaml-dev \
-        lsb-release \
-        # for shapely with --no-binary
-        libgeos-dev \
+    unzip \
+    # Build tools
+    build-essential \
+    libffi-dev \
+    python3-dev \
+    # For Psycopg2
+    libpq-dev \
+    # Yaml parsing speedup, I think
+    libyaml-dev \
+    lsb-release \
+    # for shapely with --no-binary
+    libgeos-dev \
     # Cleanup
     && apt-get autoclean \
     && apt-get autoremove \
@@ -36,8 +36,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /build
 
-ADD --checksum=sha256:cfaab1b5166a6439ff66f020333d3a12bbdf622deee3b510718283e8f06c9de7 --chown=root:root --chmod=644 --link $UV uv.tar.gz
-
+ADD --checksum=sha256:4c3426c4919d9f44633ab9884827fa1ad64ad8d993516d636eb955a3835c4a8c --chown=root:root --chmod=644 --link $UV uv.tar.gz
 
 RUN tar xf uv.tar.gz -C /usr/local/bin --strip-components=1 --no-same-owner
 
@@ -47,11 +46,11 @@ COPY --link pyproject.toml version.txt uv.lock /build/
 # not inseparable from pip/poetry/npm/etc. cache stored in /root/.cache.
 RUN --mount=type=cache,id=opendatacube-uv-cache,target=/root/.cache \
     uv sync --locked --no-dev --no-install-project \
-      --no-binary-package fiona \
-      --no-binary-package rasterio \
-      --no-binary-package shapely
+    --no-binary-package fiona \
+    --no-binary-package rasterio \
+    --no-binary-package shapely
 
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.0
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.10.3
 
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8 \
@@ -63,11 +62,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
-        unzip \
-        # For Psycopg2
-        libpq5 \
-        lsb-release \
-        postgresql-client-16 \
+    unzip \
+    # For Psycopg2
+    libpq5 \
+    lsb-release \
+    postgresql-client-16 \
+    python3-pip \
+    python3-venv \
     # Cleanup
     && apt-get autoclean \
     && apt-get autoremove \
@@ -92,3 +93,14 @@ RUN curl -L -fsS https://github.com/opendatacube/datacube-dataset-config/archive
 
 # Smoke test
 RUN s3-to-dc --help
+
+# # Install JupyterLab
+# RUN python3 -m venv /workspace/venv \
+#     && /workspace/venv/bin/pip install --upgrade pip \
+#     && /workspace/venv/bin/pip install jupyterlab
+
+# # Setup working directory
+# WORKDIR /workspace
+
+# # Run JupyterLab
+# CMD ["/workspace/venv/bin/jupyter", "lab", "--ip=0.0.0.0", "--port=8080", "--allow-root", "--no-browser"]

@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   # Start docker container for PostgreSQL to mock RDS
   postgres:
@@ -6,29 +8,58 @@ services:
     ports:
       - "5434:5432"
     environment:
-      POSTGRES_PASSWORD: opendatacubepassword
+      POSTGRES_PASSWORD: admin123
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h postgres -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -h postgres -U postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_v2
+    environment:
+      PGADMIN_DEFAULT_EMAIL: lamb2111933@student.ctu.edu.vn
+      PGADMIN_DEFAULT_PASSWORD: b2111933
+    ports:
+      - "8888:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # Start docker container for Datacube-Index
   index:
     build: .
     image: datacube-index
+    ports:
+      - "8080:8080"
     environment:
       - DB_HOSTNAME=postgres
       - DB_USERNAME=postgres
-      - DB_PASSWORD=opendatacubepassword
+      - DB_PASSWORD=b2111933
       - DB_DATABASE=postgres
       - DB_PORT=5432
       - AWS_DEFAULT_REGION=ap-southeast-2
       - PRODUCT_CATALOG=https://raw.githubusercontent.com/GeoscienceAustralia/dea-config/a4f39b485b33608a016032d9987251881fec4b6f/workspaces/sandbox-products.csv
       - METADATA_CATALOG=https://raw.githubusercontent.com/GeoscienceAustralia/dea-config/a4f39b485b33608a016032d9987251881fec4b6f/workspaces/sandbox-metadata.yaml
+    volumes:
+      - ./data:/home/ubuntu
     depends_on:
       postgres:
         condition: service_healthy
-
+    # command: >
+    #   /workspace/venv/bin/jupyter lab --ip=0.0.0.0 --port=8080 --allow-root --no-browser --ServerApp.allow_origin=* --ServerApp.allow_remote_access=True  --ServerApp.base_url=/ --ServerApp.trust_xheaders=True --ServerApp.allow_origin_pat=.*  --ServerApp.allow_host=odc.ctu.edu.vn
     command: tail -f /dev/null
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_reverse_proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - index
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl:ro
